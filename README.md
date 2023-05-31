@@ -7,7 +7,7 @@
 - Flask SQL Alchemy
 
 ## How to run??
-### Activate virtual environmet
+### Activate virtual environment
 ```
 source venv/bin/activate
 ```
