@@ -24,12 +24,6 @@ class PokemonException(Exception):
         self.code = code
 
 
-@pokemon_api.errorhandler(Exception)
-def handle_exception(e):
-    app.logger.exception(e)
-    return {"success": False, "error": str(e)}, 400
-
-
 @pokemon_api.errorhandler(SQLAlchemyError)
 def handle_sql_exception(e):
     app.logger.exception(e)
