@@ -100,9 +100,11 @@ def get_pokemon(pokemon_id=None):
     order = args.get("order", "asc")
     search = args.get("search")
     search_column = args.get("search_column", "name")
-    # legendary = args.get("legendary")
     limit = args.get("limit", 10, type=int)
     page_num = args.get("page", 1, type=int)
+
+    # print(search_column, type(search_column))
+    # print(search, type(search))
 
     try:
         if order not in ("asc", "desc"):
@@ -129,7 +131,6 @@ def get_pokemon(pokemon_id=None):
             )
 
         text_columns = ("name", "type_1", "type_2")
-        bool_column = "legendary"
         int_columns = (
             "total",
             "hp",
@@ -140,18 +141,10 @@ def get_pokemon(pokemon_id=None):
             "speed",
             "generation",
         )
+        boolean_map = {"true": True, "false": False}
 
         if search:
-            if isinstance(search, str) and search_column not in text_columns:
-                if search_column in bool_column:
-                    if search == "true":
-                        pokemon = pokemon.filter(Pokemon.legendary == True)
-                    elif search == "false":
-                        pokemon = pokemon.filter(Pokemon.legendary == False)
-                    else:
-                        raise PokemonException(
-                            "Legendary column only takes 'true' or 'false' as search string"
-                        )
+            if isinstance(search, str) and search_column in int_columns:
                 try:
                     search = int(search)
                 except:
@@ -163,16 +156,13 @@ def get_pokemon(pokemon_id=None):
                 pokemon = pokemon.filter(
                     getattr(Pokemon, search_column).ilike(f"%{search}%")
                 )
-            # elif search_column == "legendary":
-            #     if search == "true":
-            #         pokemon = pokemon.filter(Pokemon.legendary == True)
-            #     elif search == "false":
-            #         pokemon = pokemon.filter(Pokemon.legendary == False)
-            #     else:
-            #         raise PokemonException(
-            #             "Legendary column only takes 'true' or 'false' as search string"
-            #         )
-
+            elif search_column == "legendary":
+                if search in boolean_map:
+                    pokemon = pokemon.filter(Pokemon.legendary == boolean_map[search])
+                else:
+                    raise PokemonException(
+                        "Legendary column only takes 'true' or 'false' as search string"
+                    )
             else:
                 raise PokemonException("Invalid search column")
 
