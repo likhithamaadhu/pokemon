@@ -20,7 +20,7 @@ sudo apt install python3-venv
 ```
 python3 -m venv venv(folder name)
 ```
-<p> then activte the venv </p>
+<p> then activate the venv </p>
   
 ### Install the requirements
 ```
