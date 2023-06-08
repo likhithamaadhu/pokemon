@@ -2,13 +2,13 @@
 from datetime import timezone, datetime
 
 # Below are installed import
-from flask import Blueprint, request, url_for
+from flask import Blueprint, request, url_for, current_app
 from sqlalchemy import insert
 from sqlalchemy.dialects.postgresql import insert as upsert
 from sqlalchemy.exc import SQLAlchemyError
 
 # Below are custom imports
-from app import db, app
+from app import db
 from app.models import (
     Pokemon,
     pokemons_schema,
@@ -45,35 +45,35 @@ class UserError(Exception):
 
 @pokemon_api.errorhandler(SQLAlchemyError)
 def handle_sql_exception(e):
-    app.logger.exception(e)
+    current_app.logger.exception(e)
 
     return {"success": False, "error": str(e)}, 400
 
 
 @pokemon_api.errorhandler(PokemonException)
 def handle_pokemon_exception(e):
-    app.logger.exception(e)
+    current_app.logger.exception(e)
 
     return {"success": False, "error": e.message}, e.code
 
 
 @pokemon_api.errorhandler(DataNotFoundError)
 def handle_datanotfound_exception(e):
-    app.logger.exception(e)
+    current_app.logger.exception(e)
 
     return {"success": False, "error": e.message}, e.code
 
 
 @pokemon_api.errorhandler(NoContent)
 def handle_nocontent_exception(e):
-    # app.logger.exception(e)
+    # current_app.logger.exception(e)
 
     return {"success": False, "error": e.message}, e.code
 
 
 @pokemon_api.errorhandler(UserError)
 def handle_usererror_exception(e):
-    # app.logger.exception(e)
+    # current_app.logger.exception(e)
 
     return {"success": False, "error": e.message}
 
@@ -116,7 +116,6 @@ def get_pokemon(pokemon_id=None):
             raise DataNotFoundError(f"Data not found for Pokémon: {pokemon_id}")
 
         pokemon_info = pokemon_schema.dump(pokemon_info)
-        print(pokemon_info)
 
         return {
             "success": True,

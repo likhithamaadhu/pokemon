@@ -10,14 +10,20 @@ from flask_sqlalchemy import SQLAlchemy
 from app import config
 
 
-app = Flask(__name__)
+db = SQLAlchemy()
+migrate = Migrate()
 
-app.config.from_object(config.Config)
-app.logger.setLevel(logging.INFO)
 
-db = SQLAlchemy(app)
-migrate = Migrate(app, db)
+def create_app():
+    app = Flask(__name__)
+    app.config.from_object(config.Config)
+    app.logger.setLevel(logging.INFO)
 
-from app import views
+    db.init_app(app)
+    migrate.init_app(app, db)
 
-app.register_blueprint(views.pokemon_api)
+    from app import views
+
+    app.register_blueprint(views.pokemon_api)
+
+    return app
