@@ -34,8 +34,6 @@ def download_data():
 
     return parsed_data
 
-    # print(pokemon_data, type(pokemon_data), type(pokemon_data[0]))
-
 
 def process_data():
     parsed_data = download_data()
@@ -60,7 +58,7 @@ def process_data():
     pokemon_data = []
     id_list = []
     # final_dict = dict(zip(ini_list, list(ini_dict.values())))
-    for row in parsed_data:
+    for row in parsed_data:  # changing id value for duplicate ids
         row_id = row["#"]
         if row_id in id_list:
             row_id = max(id_list) + 1
@@ -77,11 +75,8 @@ def load_data():
     pokemon_data = process_data()
     count = len(pokemon_data)
     try:
-        db.create_all()
-
         print("Inserting Data into Database")
         db.session.execute(insert(Pokemon), pokemon_data)
-        # alter_sequence = DDL(f"ALTER SEQUENCE pokemon_id_seq RESTART WITH {count+1}")
         alter_sequence = DDL(f"SELECT setval('pokemon_id_seq', {count}, true);")
         db.session.execute(alter_sequence)
         db.session.commit()

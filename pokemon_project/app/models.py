@@ -1,80 +1,65 @@
 from app import db
+from dataclasses import dataclass
+from marshmallow import Schema, fields
 
 
+@dataclass
 class Pokemon(db.Model):
 
     """
     The Pokemon model contains below fields
-    id	:	int
-    name	:	text
-    type_1	:	text
-    type 2	:	text
-    total	:	int
-    hp	    :	int
-    attack	:	int
-    defense	:	int
-    sp_atk	:	int
-    sp_def	:	int
-    speed	:	int
-    generation	:	int
-    legendary	:   boolean
+    id: int
+    name: text
+    type_1: text
+    type 2: text
+    total: int
+    hp: int
+    attack: int
+    defense: int
+    sp_atk: int
+    sp_def: int
+    speed: int
+    generation: int
+    legendary: boolean
     """
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.Text, nullable=False)
-    type_1 = db.Column(db.Text)
+    type_1 = db.Column(db.Text, nullable=False)
     type_2 = db.Column(db.Text)
-    total = db.Column(db.Integer)
-    hp = db.Column(db.Integer)
-    attack = db.Column(db.Integer)
-    defense = db.Column(db.Integer)
-    sp_atk = db.Column(db.Integer)
-    sp_def = db.Column(db.Integer)
-    speed = db.Column(db.Integer)
-    generation = db.Column(db.Integer)
-    legendary = db.Column(db.Boolean, default=False)
+    total = db.Column(db.Integer, nullable=False, default=0)
+    hp = db.Column(db.Integer, nullable=False, default=0)
+    attack = db.Column(db.Integer, nullable=False, default=0)
+    defense = db.Column(db.Integer, nullable=False, default=0)
+    sp_atk = db.Column(db.Integer, nullable=False, default=0)
+    sp_def = db.Column(db.Integer, nullable=False, default=0)
+    speed = db.Column(db.Integer, nullable=False, default=0)
+    generation = db.Column(db.Integer, nullable=False, default=1)
+    legendary = db.Column(db.Boolean, nullable=False, default=False)
 
-    def __init__(
-        self,
-        name,
-        type_1,
-        type_2,
-        total,
-        hp,
-        attack,
-        defense,
-        sp_atk,
-        sp_def,
-        speed,
-        generation,
-        legendary,
-    ):
-        self.name = name
-        self.type_1 = type_1
-        self.type_2 = type_2
-        self.total = total
-        self.hp = hp
-        self.attack = attack
-        self.defense = defense
-        self.sp_atk = sp_atk
-        self.sp_def = sp_def
-        self.speed = speed
-        self.generation = generation
-        self.legendary = legendary
 
-    def __repr__(self):
-        return "{} - {} - {} - {} - {} - {} - {} - {} \
-                - {} - {} - {} - {}".format(
-            self.name,
-            self.type_1,
-            self.type_2,
-            self.total,
-            self.hp,
-            self.attack,
-            self.defense,
-            self.sp_atk,
-            self.sp_def,
-            self.speed,
-            self.generation,
-            self.legendary,
-        )
+class PostPokemonSchema(Schema):
+    name = fields.String(required=True)
+    type_1 = fields.String(required=True)
+    type_2 = fields.String(required=False, allow_none=True, default=None)
+    total = fields.Integer(required=True, default=0)
+    hp = fields.Integer(required=True, default=0)
+    attack = fields.Integer(required=True, default=0)
+    defense = fields.Integer(required=True, default=0)
+    sp_atk = fields.Integer(required=True, default=0)
+    sp_def = fields.Integer(required=True, default=0)
+    speed = fields.Integer(required=True, default=0)
+    generation = fields.Integer(required=True, default=1)
+    legendary = fields.Boolean(required=True, default=False)
+
+
+post_pokemon_schema = PostPokemonSchema()
+post_pokemons_schema = PostPokemonSchema(many=True)
+
+
+class PokemonSchema(PostPokemonSchema):
+    id = fields.Integer(required=True)
+
+
+pokemon_schema = PokemonSchema()
+pokemons_schema = PokemonSchema(many=True)

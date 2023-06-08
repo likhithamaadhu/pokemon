@@ -1,18 +1,20 @@
 # Below are in built import
 from datetime import timezone, datetime
-from collections import OrderedDict
 
 # Below are installed import
-from flask import Blueprint, request
+from flask import Blueprint, request, url_for
 from sqlalchemy import insert
 from sqlalchemy.dialects.postgresql import insert as upsert
 from sqlalchemy.exc import SQLAlchemyError
 
 # Below are custom imports
 from app import db, app
-from app.models import Pokemon
-
-# from run import app
+from app.models import (
+    Pokemon,
+    pokemons_schema,
+    pokemon_schema,
+    post_pokemons_schema,
+)
 
 
 pokemon_api = Blueprint("pokemon_api", __name__, url_prefix="/api/pokemons")
@@ -24,10 +26,21 @@ class PokemonException(Exception):
         self.code = code
 
 
-@pokemon_api.errorhandler(Exception)
-def handle_exception(e):
-    app.logger.exception(e)
-    return {"success": False, "error": str(e)}, 400
+class DataNotFoundError(Exception):
+    def __init__(self, message, code=404):
+        self.message = message
+        self.code = code
+
+
+class NoContent(Exception):
+    def __init__(self, message, code=204):
+        self.message = message
+        self.code = code
+
+
+class UserError(Exception):
+    def __init__(self, message):
+        self.message = message
 
 
 @pokemon_api.errorhandler(SQLAlchemyError)
@@ -38,10 +51,31 @@ def handle_sql_exception(e):
 
 
 @pokemon_api.errorhandler(PokemonException)
-def handle_exception(e):
+def handle_pokemon_exception(e):
     app.logger.exception(e)
 
     return {"success": False, "error": e.message}, e.code
+
+
+@pokemon_api.errorhandler(DataNotFoundError)
+def handle_datanotfound_exception(e):
+    app.logger.exception(e)
+
+    return {"success": False, "error": e.message}, e.code
+
+
+@pokemon_api.errorhandler(NoContent)
+def handle_nocontent_exception(e):
+    # app.logger.exception(e)
+
+    return {"success": False, "error": e.message}, e.code
+
+
+@pokemon_api.errorhandler(UserError)
+def handle_usererror_exception(e):
+    # app.logger.exception(e)
+
+    return {"success": False, "error": e.message}
 
 
 # -----------------Pokemon APIs-----------------
@@ -65,35 +99,6 @@ def get_pokemon(pokemon_id=None):
         limit(int) = number of records per page
         page(int): page number to fecth.
     """
-    pokemon = Pokemon.query
-    if pokemon_id:
-        pokemon_info = pokemon.filter_by(id=pokemon_id).first()
-
-        if not pokemon_info:
-            raise PokemonException("Data not found", 404)
-
-        pokemon_info = {
-            "id": pokemon_info.id,
-            "name": pokemon_info.name,
-            "type_1": pokemon_info.type_1,
-            "type_2": pokemon_info.type_2,
-            "total": pokemon_info.total,
-            "hp": pokemon_info.hp,
-            "attack": pokemon_info.attack,
-            "defense": pokemon_info.defense,
-            "sp_atk": pokemon_info.sp_atk,
-            "sp_def": pokemon_info.sp_def,
-            "speed": pokemon_info.speed,
-            "generation": pokemon_info.generation,
-            "legendary": pokemon_info.legendary,
-        }
-
-        return {
-            "success": True,
-            "pokemon": pokemon_info,
-            "message": "Pokemon retrived sucessfully.",
-        }, 200
-
     args = request.args
 
     sort = args.get("sort", "id")
@@ -103,12 +108,25 @@ def get_pokemon(pokemon_id=None):
     limit = args.get("limit", 10, type=int)
     page_num = args.get("page", 1, type=int)
 
-    # print(search_column, type(search_column))
-    # print(search, type(search))
+    pokemon = Pokemon.query
+    if pokemon_id:
+        pokemon_info = pokemon.filter_by(id=pokemon_id).first()
+
+        if not pokemon_info:
+            raise DataNotFoundError(f"Data not found for Pokémon: {pokemon_id}")
+
+        pokemon_info = pokemon_schema.dump(pokemon_info)
+        print(pokemon_info)
+
+        return {
+            "success": True,
+            "pokemon": pokemon_info,
+            "message": "Pokemon retrived sucessfully.",
+        }, 200
 
     try:
         if order not in ("asc", "desc"):
-            raise ValueError("Invalid order by argument, only allowed 'asc', 'desc'")
+            raise UserError("Invalid order by argument, only allowed 'asc', 'desc'")
 
         if sort not in (
             "id",
@@ -124,7 +142,7 @@ def get_pokemon(pokemon_id=None):
             "speed",
             "generation",
         ):
-            raise ValueError(
+            raise UserError(
                 "Invalid sort argument, only allowed 'id','name'\
                              ,'type_1','type_2','total','hp','attack'\
                              ,'defense','sp_atk','sp_def','speed','generation'"
@@ -141,7 +159,7 @@ def get_pokemon(pokemon_id=None):
             "speed",
             "generation",
         )
-        boolean_map = {"true": True, "false": False}
+        boolean_map = {"TRUE": True, "FALSE": False}
 
         if search:
             if isinstance(search, str) and search_column in int_columns:
@@ -157,10 +175,11 @@ def get_pokemon(pokemon_id=None):
                     getattr(Pokemon, search_column).ilike(f"%{search}%")
                 )
             elif search_column == "legendary":
+                search = search.upper()
                 if search in boolean_map:
                     pokemon = pokemon.filter(Pokemon.legendary == boolean_map[search])
                 else:
-                    raise PokemonException(
+                    raise UserError(
                         "Legendary column only takes 'true' or 'false' as search string"
                     )
             else:
@@ -172,31 +191,21 @@ def get_pokemon(pokemon_id=None):
 
         now = datetime.now(timezone.utc)
 
-        pokemon_list = [
-            {
-                "id": i.id,
-                "name": i.name,
-                "type_1": i.type_1,
-                "type_2": i.type_2,
-                "total": i.total,
-                "hp": i.hp,
-                "attack": i.attack,
-                "defense": i.defense,
-                "sp_atk": i.sp_atk,
-                "sp_def": i.sp_def,
-                "speed": i.speed,
-                "generation": i.generation,
-                "legendary": i.legendary,
-            }
-            for i in pokemon.items
-        ]
+        pokemon_list = pokemons_schema.dump(pokemon)
+
         if not pokemon_list:
-            return {"msg": "No Content found"}, 204
+            return {"message": "No Content found"}, 204
+
+        if pokemon.has_next:
+            next_url = url_for("pokemon_api.get_pokemon", page=pokemon.next_num)
+        else:
+            next_url = None
 
         pokemon_data = dict(
             Pokemons=pokemon_list,
             total=pokemon.total,
             current_page=pokemon.page,
+            next_page=next_url,
             per_page=pokemon.per_page,
             timestamp=now,
         )
@@ -234,15 +243,22 @@ def insert_pokemon():
         legendary(bool): true/false
         }
     """
-    pokemon_info = request.json
-    pokemon_info = pokemon_info.get("data")
+    pokemon_data = request.json
+    pokemon_data = pokemon_data.get("data")
 
-    if not pokemon_info:
+    # validation of input data
+    errors = post_pokemons_schema.validate(pokemon_data)
+    if errors:
+        return {"validationerror": errors}, 400
+
+    if not pokemon_data:
         return {"error": "data not found"}, 404
 
     try:
-        db.session.execute(insert(Pokemon), pokemon_info)
+        print("checking query")
+        db.session.execute(insert(Pokemon), pokemon_data)
         db.session.commit()
+        print("checking after commit")
     except Exception as error:
         return {"error": str(error)}, 404
 
@@ -283,19 +299,35 @@ def update_pokemon(pokemon_id=None):
     if pokemon_id:
         record = request.json
         record["id"] = pokemon_id
-        # print(record,type(record))
         pokemon_data = [record]
-        # print(pokemon_data)
 
     else:
         pokemon_data = request.json.get("data")
 
     if not pokemon_data:
-        return {"error": "Data not found"}, 404
+        raise DataNotFoundError("Data not found")
+
+    _pokemon_data = []
+    for row in pokemon_data:
+        row_id = row.get("id")
+        if not row_id:  # throw error if ID not given
+            raise UserError("ID not provided")
+
+        pokemon = Pokemon.query.filter_by(id=row_id).first()
+
+        if not pokemon:  # throw error if pokemon doesnt exist
+            raise UserError("pokemon doesnt exist")
+        pokemon = pokemon_schema.dump(pokemon)
+
+        pokemon.update(row)
+        _pokemon_data.append(pokemon)
+
+    errors = pokemons_schema.validate(_pokemon_data)
+    if errors:
+        return {"validationerror": errors}, 400
 
     try:
-        query = upsert(Pokemon).values(pokemon_data)
-        # print(str(query))
+        query = upsert(Pokemon).values(_pokemon_data)
         query = query.on_conflict_do_update(
             index_elements=[Pokemon.id],
             set_=dict(
@@ -313,8 +345,6 @@ def update_pokemon(pokemon_id=None):
                 legendary=query.excluded.legendary,
             ),
         )
-
-        # print(str(query))
 
         db.session.execute(query)
         db.session.commit()
@@ -341,33 +371,22 @@ def delete_pokemon(pokemon_id=None):
             [ids]
     """
 
-    if pokemon_id:
-        pokemon_info = Pokemon.query.filter_by(id=pokemon_id).first()
-
-        if not pokemon_info:
-            return {"error": "Pokemon not found"}, 404
-
-        db.session.delete(pokemon_info)
-        db.session.commit()
-
-        return {"success": True, "message": "Pokemon deleted successfully"}, 200
-
-    pokemon_id_list = request.json.get("data")
+    pokemon_id_list = [pokemon_id] if pokemon_id else request.json.get("data")
 
     if not pokemon_id_list:
-        return {"error": "Data not found"}, 404
+        raise DataNotFoundError(f"Data not found")
 
     pokemon_list = Pokemon.query.filter(Pokemon.id.in_(pokemon_id_list))
 
     count = pokemon_list.count()
 
     if not count:
-        return {"Error": "No content"}, 204
+        raise NoContent(f"No content")
 
     pokemon_list.delete()
     db.session.commit()
 
     return {
         "success": True,
-        "message": f"Deleted {count} pokemons",
+        "message": f"Deleted {count} pokemon(s)",
     }, 200
