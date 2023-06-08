@@ -110,18 +110,7 @@ def get_pokemon(pokemon_id=None):
 
     pokemon = Pokemon.query
     if pokemon_id:
-        pokemon_info = pokemon.filter_by(id=pokemon_id).first()
-
-        if not pokemon_info:
-            raise DataNotFoundError(f"Data not found for Pokémon: {pokemon_id}")
-
-        pokemon_info = pokemon_schema.dump(pokemon_info)
-
-        return {
-            "success": True,
-            "pokemon": pokemon_info,
-            "message": "Pokemon retrived sucessfully.",
-        }, 200
+        pokemon = pokemon.filter(Pokemon.id == pokemon_id)
 
     try:
         if order not in ("asc", "desc"):
@@ -254,10 +243,8 @@ def insert_pokemon():
         return {"error": "data not found"}, 404
 
     try:
-        print("checking query")
         db.session.execute(insert(Pokemon), pokemon_data)
         db.session.commit()
-        print("checking after commit")
     except Exception as error:
         return {"error": str(error)}, 404
 
